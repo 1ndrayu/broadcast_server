@@ -1,17 +1,26 @@
 import asyncio
 import websockets
+from datetime import datetime
 
-connected_clients = set()
+connected_clients = {}
 
 async def handler(websocket, path):
-    connected_clients.add(websocket)
     try:
+        username = await websocket.recv()
+        connected_clients[websocket] = username
+        await broadcast(f"{username} has joined the chat.")
+
         async for message in websocket:
-            await broadcast(message)
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            formatted_msg = f"[{timestamp}] @{username}: {message}"
+            await broadcast(formatted_msg)
+
     except websockets.ConnectionClosed:
         pass
     finally:
-        connected_clients.remove(websocket)
+        username = connected_clients.get(websocket, "Unknown")
+        connected_clients.pop(websocket, None)
+        await broadcast(f"{username} has left the chat.")
 
 async def broadcast(message):
     if connected_clients:
